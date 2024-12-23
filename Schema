@@ -1,0 +1,86 @@
+-- Tables:
+-- Users Table
+CREATE TABLE Users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,  -- bcrypt or argon2 hash
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('buyer', 'seller', 'admin')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Items Table
+CREATE TABLE Items (
+    item_id SERIAL PRIMARY KEY,
+    seller_id INTEGER NOT NULL REFERENCES Users(user_id),
+    category_id INTEGER REFERENCES Categories(category_id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    condition VARCHAR(50), -- e.g., 'new', 'used', 'like new', 'fair'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- Location can be refined (postal code / geo-coordinates)
+    location VARCHAR(255)
+    -- Consider adding a quantity field for inventory
+);
+
+-- Orders Table
+CREATE TABLE Orders (
+    order_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES Users(user_id),
+    order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    total_price DECIMAL(10, 2) NOT NULL,
+    order_status VARCHAR(20) NOT NULL DEFAULT 'pending', -- e.g., 'pending', 'processing', 'shipped', 'completed', 'cancelled'
+    shipping_address TEXT
+);
+
+-- Order Items (Join Table between Orders and Items)
+CREATE TABLE Order_Items (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES Orders(order_id),
+    item_id INTEGER NOT NULL REFERENCES Items(item_id),
+    quantity INTEGER NOT NULL DEFAULT 1,
+    price_at_purchase DECIMAL(10, 2) NOT NULL  -- Record price at order time
+    -- Add other details related to order item like options etc
+);
+
+-- Payments Table
+CREATE TABLE Payments (
+    payment_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES Orders(order_id),
+    payment_method VARCHAR(50) NOT NULL, -- 'stripe', 'paypal'
+    transaction_status VARCHAR(20) NOT NULL, -- 'success', 'pending', 'failed'
+    transaction_id VARCHAR(255) UNIQUE, -- From payment gateway
+    payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Categories Table
+CREATE TABLE Categories (
+    category_id SERIAL PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Images Table
+CREATE TABLE Images (
+    image_id SERIAL PRIMARY KEY,
+    item_id INTEGER NOT NULL REFERENCES Items(item_id) ON DELETE CASCADE, -- important to delete images if item is deleted
+    image_url VARCHAR(255) NOT NULL, -- S3 URL or similar
+    -- Add field for image metadata(optional),
+    -- Can be added based on your use case.
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Adding Indexes
+CREATE INDEX idx_users_email ON Users (email);
+CREATE INDEX idx_items_seller_id ON Items (seller_id);
+CREATE INDEX idx_items_category_id ON Items (category_id);
+CREATE INDEX idx_orders_user_id ON Orders (user_id);
+CREATE INDEX idx_order_items_order_id ON Order_Items(order_id);
+CREATE INDEX idx_order_items_item_id ON Order_Items(item_id);
+CREATE INDEX idx_payments_order_id ON Payments (order_id);
+CREATE INDEX idx_images_item_id ON Images (item_id);
